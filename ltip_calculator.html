@@ -1,0 +1,293 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>LTIP Estimator</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;max-width:880px;margin:24px auto;padding:10px;}
+    h2{margin:0 0 10px 0}
+    label{display:block;margin-top:8px;font-weight:600}
+    input[type="text"], input[type="date"], input[type="number"]{width:100%;padding:6px;margin-top:4px;}
+    .row{display:flex;gap:16px;flex-wrap:wrap}
+    .col{flex:1;min-width:260px}
+    .result{background:#f6f8fa;padding:12px;margin-top:14px;border-radius:6px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:10px 8px;border-bottom:1px solid #eee;text-align:left}
+    th{background:#fafbfc}
+
+    /* Hidden, hoverable tooltips on label text */
+    label.tooltip { position: relative; cursor: help; }
+    label.tooltip .tooltiptext {
+      visibility: hidden;
+      width: 300px;
+      background-color: #333;
+      color: #fff;
+      text-align: left;
+      border-radius: 6px;
+      padding: 10px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;    /* above label */
+      left: 0;         /* align left for long labels */
+      opacity: 0;
+      transition: opacity 0.25s;
+      font-weight: normal;
+      font-size: 13px;
+      line-height: 1.35;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.18);
+    }
+    label.tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+    /* Optional discoverability */
+    label.tooltip:hover { text-decoration: underline dotted; text-underline-offset: 2px; }
+    /* Button */
+    .btn{margin-top:12px;padding:10px 14px;border:1px solid #d0d7de;border-radius:6px;background:#fff;cursor:pointer}
+    .btn:hover{background:#f3f4f6}
+    /* Note box */
+    .note{margin-top:10px;padding:10px;background:#fff3cd;border:1px solid #ffe08a;border-radius:6px}
+  </style>
+</head>
+<body>
+  <h2>LTIP Estimator</h2>
+  <div>
+    <div class="col" style="padding:0">
+      <label class="tooltip">
+        Project CAPEX
+        <span class="tooltiptext">
+          Total capital cost to build the project (design, equipment, construction). The LTIP pool is a percentage of this number.
+        </span>
+      </label>
+      <input id="capex" type="number" inputmode="decimal" min="0" step="1000" placeholder="e.g., 200000000" value="0" />
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label class="tooltip">
+          LTIP pool %
+          <span class="tooltiptext">
+            The portion of total project CAPEX reserved for the LTIP pool. Rowan’s plan uses <strong>1.75%</strong>.
+          </span>
+        </label>
+        <input id="poolPct" type="number" inputmode="decimal" min="0" step="0.01" value="1.75" />
+      </div>
+      <div class="col">
+        <label class="tooltip">
+          Your participation %
+          <span class="tooltiptext">
+            Your share of the LTIP pool based on level and eligibility.
+          </span>
+        </label>
+        <input id="partPct" type="number" inputmode="decimal" min="0" step="0.001" value="0.00" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label class="tooltip">
+          Employee start date
+          <span class="tooltiptext">
+            Used to check eligibility (12 months) and vesting (24 months). Payouts only happen on the next June 30 or Dec 31 after each event and require you to be employed on that payment date.
+          </span>
+        </label>
+        <input id="startDate" type="date" value="2025-01-01" />
+      </div>
+      <div class="col">
+        <label class="tooltip">
+          NTP / Financial Close date
+          <span class="tooltiptext">
+            First milestone payment event. 10% of your total LTIP share is payable if eligibility, vesting, and performance gates are met (or deferred to the next pay date when you’re vested).
+          </span>
+        </label>
+        <input id="ntpDate" type="date" value="2026-07-01" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label class="tooltip">
+          COD date
+          <span class="tooltiptext">
+            Commercial Operations Date (project begins operating). Triggers a 15% payment (subject to gates). Another 15% is at 12 months post COD.
+          </span>
+        </label>
+        <input id="codDate" type="date" value="2027-07-01" />
+      </div>
+      <div class="col">
+        <label class="tooltip">
+          Exit date
+          <span class="tooltiptext">
+            Exit (sale or investor exit) triggers the remaining 60% payment. If you’re not vested at the immediate payment date, it will defer to the next June 30 / Dec 31 when you are vested.
+          </span>
+        </label>
+        <input id="exitDate" type="date" value="2030-07-01" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label class="tooltip">
+          IRR met at events?
+          <span class="tooltiptext">
+            <strong>IRR (Internal Rate of Return)</strong> is the annualized return rate based on all project cash flows. LTIP requires at least <strong>15% IRR</strong> at the event/payment check.
+          </span>
+        </label>
+        <select id="irrOk">
+          <option value="1">Yes (all events)</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+
+      <div class="col">
+        <label class="tooltip">
+          MOIC met at events?
+          <span class="tooltiptext">
+            <strong>MOIC (Multiple on Invested Capital)</strong> = Total Value / Total Invested. LTIP requires at least <strong>1.25× MOIC</strong> at the event/payment check.
+          </span>
+        </label>
+        <select id="moicOk">
+          <option value="1">Yes (all events)</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn" onclick="calc()">Calculate</button>
+
+    <div id="out" class="result" style="display:none"></div>
+  </div>
+
+<script>
+function firstPayDateAfter(d) {
+  // First June 30 or Dec 31 ON or AFTER the event date
+  var yr = d.getFullYear();
+  var june30 = new Date(yr,5,30);
+  var dec31 = new Date(yr,11,31);
+  if (d <= june30) return june30;
+  if (d <= dec31) return dec31;
+  return new Date(yr+1,5,30);
+}
+function addMonths(date, n){
+  var d = new Date(date);
+  d.setMonth(d.getMonth()+n);
+  return d;
+}
+
+function calc(){
+  var capex = Number(document.getElementById('capex').value || 0);
+  var poolPct = Number(document.getElementById('poolPct').value || 0)/100;
+  var partPct = Number(document.getElementById('partPct').value || 0)/100;
+  var start = new Date(document.getElementById('startDate').value);
+  var ntp = new Date(document.getElementById('ntpDate').value);
+  var cod = new Date(document.getElementById('codDate').value);
+  var exitD = new Date(document.getElementById('exitDate').value);
+  var irrOk = document.getElementById('irrOk').value === '1';
+  var moicOk = document.getElementById('moicOk').value === '1';
+
+  var pool = capex * poolPct;
+  var share = pool * partPct;
+
+  // Milestones and percentages
+  var milestones = [
+    {name:"NTP / Financial Close", pct:0.10, date:ntp},
+    {name:"Commercial Operations Date (COD)", pct:0.15, date:cod},
+    {name:"12 Months Post COD", pct:0.15, date:addMonths(cod,12)},
+    {name:"Exit", pct:0.60, date:exitD}
+  ];
+
+  // Eligibility (12 mo) and Vesting (24 mo) checks by event date
+  function eligibleAt(eventDate){ return eventDate >= addMonths(start,12); }
+  function vestedAt(eventDate){ return eventDate >= addMonths(start,24); }
+
+  var rows = [];
+  var total = 0;
+  var notes = [];
+
+  milestones.forEach(m => {
+    var eligible = eligibleAt(m.date);
+    var vested = vestedAt(m.date);
+    var perfOK = irrOk && moicOk;
+
+    var eventPayDate = firstPayDateAfter(m.date);
+    var vestingDate = addMonths(start,24);
+    var nextPayDateAfterVest = firstPayDateAfter(vestingDate);
+
+    // Allowed on the first applicable pay date if eligible + perf OK and vested by that pay date.
+    var allowed = (eligible && perfOK && vested);
+    var deferred = false;
+    var payoutDateShown = eventPayDate;
+
+    // If not vested by the immediate pay date, but you will be vested by the next pay date, defer it there.
+    if (eligible && perfOK && !vested) {
+      if (nextPayDateAfterVest > eventPayDate) {
+        deferred = true;
+        payoutDateShown = nextPayDateAfterVest;
+        allowed = true;
+        notes.push(
+          `You are not vested at the first payment date for <strong>${m.name}</strong>, ` +
+          `but you will be vested by the next one (<strong>${payoutDateShown.toISOString().slice(0,10)}</strong>). ` +
+          `Your payout for this event will be made then.`
+        );
+      } else {
+        // If vesting occurs before or on the event pay date, treat as allowed
+        if (vestingDate <= eventPayDate) {
+          allowed = true;
+        }
+      }
+    }
+
+    var amount = allowed ? share * m.pct : 0;
+    total += amount;
+
+    rows.push({
+      name: m.name,
+      date: m.date,
+      payDate: payoutDateShown,
+      allowed: allowed,
+      deferred: deferred,
+      amount: amount,
+      pct: m.pct
+    });
+  });
+
+  // Render
+  var out = document.getElementById('out');
+  out.style.display = 'block';
+  function money(x){ return '$' + Math.round(x).toLocaleString(); }
+  var html = `<h3>Results</h3>
+    <p>
+      LTIP pool = <strong>${money(pool)}</strong><br>
+      Your total share (if all gates ultimately met) = <strong>${money(share)}</strong>
+    </p>
+    <table>
+      <tr>
+        <th>Event</th>
+        <th>Payout %</th>
+        <th>Event Date</th>
+        <th>Payment Date</th>
+        <th>Eligible &amp; Vested?</th>
+        <th>Estimated Payout</th>
+      </tr>`;
+
+  rows.forEach(r=>{
+    html += `<tr>
+      <td>${r.name}</td>
+      <td>${(r.pct*100).toFixed(0)}%</td>
+      <td>${r.date.toISOString().slice(0,10)}</td>
+      <td>${r.payDate.toISOString().slice(0,10)}</td>
+      <td>${r.allowed ? (r.deferred ? "Deferred" : "Yes") : "No"}</td>
+      <td>${money(r.amount)}</td>
+    </tr>`;
+  });
+
+  html += `<tr><th colspan="5">Estimated Total Payout</th><th>${money(total)}</th></tr></table>`;
+
+  if (notes.length) {
+    html += `<div class="note">
+      <strong>Note:</strong><br>${notes.join("<br>")}
+    </div>`;
+  }
+
+  out.innerHTML = html;
+}
+</script>
+</body>
+</html>
